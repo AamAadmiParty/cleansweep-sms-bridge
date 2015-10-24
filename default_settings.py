@@ -1,1 +1,5 @@
 PASSWORD = "/xffS/xb8k"
+
+CLIENT_ID = "xSbAMFEJlFrZUFyV"
+
+CLIENT_SECRET = "VEmleukjCvpNoVnmeIIGFaCuIJckjTBR"
