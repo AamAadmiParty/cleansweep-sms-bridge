@@ -33,9 +33,16 @@ def handle_request():
     is_authorized = response.status_code == "200"
     if is_authorized:
         token = data['token']  # Grab token if authorized
-        
+        if task == "sendsms":
+            response = _send_sms(token, sms_text_parts)
+        else:
+            response = None
     else:
         return jsonify({'feedback': data['error']}), data.status_code
+
+    data = response.json()
+    is_successful = response.status_code == 200
+    return jsonify({"feedback": data['feedback'] if is_successful else data['error']}), response.status_code
 
 
 def _authorize(task, phone):
@@ -79,3 +86,38 @@ def _authorize(task, phone):
     }
     response = requests.post('http://cleansweep.herokuapp.com/api/authorize', data)
     return response
+
+
+def _send_sms(token, sms_text_parts):
+    """
+    Sends a request to send group sms to all the volunteers of a place.
+    :param token: The token to communicate with server
+    :param sms_text_parts: The exact sms user sent, split by whitespace.
+                            Contains place and the message to send.
+    :return: Response from the server in a request object.
+    This is what the server is going to return:
+
+    If successfully sent
+    200 OK
+
+    {
+        "message": "Message delivered",
+        "count": "34"
+    }
+
+    If token did not match
+    403 Forbidden
+
+    {
+        "error": "Token did not match."
+    }
+    """
+    if len(sms_text_parts) != 3:  # If sending sms, there can be only 3 parts. 1st task, 2nd place and 3rd the message.
+        return None
+    data = {
+        'token': token,
+        'client-id': app.config['CLIENT_ID'],
+        'place': sms_text_parts[1],
+        'message': sms_text_parts[2]
+    }
+    return requests.post('http://localhost:5000/api/send-sms', data)
