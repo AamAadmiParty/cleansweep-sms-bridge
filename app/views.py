@@ -34,15 +34,18 @@ def handle_request(cleansweep_instance):
     response = _authorize(task, phone, cleansweep_app_url)
     data = response.json()
 
-    is_authorized = response.status_code == "200"
+    is_authorized = response.status_code == 200
     if is_authorized:
         token = data['token']  # Grab token if authorized
-        if task == "sendsms":
+        if task == "send-sms":
             response = _send_sms(token, sms_text_parts, cleansweep_app_url)
         else:
             response = None
     else:
-        return jsonify({'feedback': data['error']}), data.status_code
+        return jsonify({'feedback': data['error']}), response.status_code
+
+    if response is None:
+        return jsonify(), 400
 
     data = response.json()
     is_successful = response.status_code == 200
@@ -69,6 +72,20 @@ def _authorize(task, phone, cleansweep_app_url):
         "token": <token>
     }
 
+    If app does not have permission for the specified scope/task.
+    403 Forbidden
+
+    {
+        "error": "This app does not have permission for <task>"
+    }
+
+    If scope/task is invalid.
+    400 Bad Request
+
+    {
+        "error": "Invalid scope: <task>"
+    }
+
     If no user can be found from that phone number
     404 Not Found
 
@@ -76,11 +93,11 @@ def _authorize(task, phone, cleansweep_app_url):
         "error": "No such user found"
     }
 
-    If user does not have permission
+    If user does not have permission for the specified task/scope.
     403 Forbidden
 
     {
-        "error": "The user does not have permission"
+        "error": "The user does not have permission for <task>."
     }
     """
     data = {
@@ -107,22 +124,48 @@ def _send_sms(token, sms_text_parts, cleansweep_app_url):
     200 OK
 
     {
-        "message": "Message delivered",
-        "count": "34"
+        "feedback": "Your message has been sent to all the volunteers of <sms_text_parts[1]>",
     }
 
     If token did not match
+    400 Bad Request
+
+    {
+        "error": "Invalid token: <token>"
+    }
+
+    If token gets expired
+    400 Bad Request
+
+    {
+        "error": "Token expired: <token>"
+    }
+
+    If place in sms_text_parts[1] is not a valid place
+    400 Bad Request
+
+    {
+        "error": "Invalid place: <sms_text_parts[1]>"
+    }
+
+    If user does not have permission on that place
     403 Forbidden
 
     {
-        "error": "Token did not match."
+        "error": "User does not have permission on: <sms_text_parts[1]>"
+    }
+
+    If sms is not configured for that place
+    404 Bad Request
+
+    {
+        "error": "SMS is not configured for place: <sms_text_parts[1]>"
     }
     """
     if len(sms_text_parts) != 3:  # If sending sms, there can be only 3 parts. 1st task, 2nd place and 3rd the message.
         return None
     data = {
         'token': token,
-        'client-id': app.config['CLIENT_ID'],
         'place': sms_text_parts[1],
         'message': sms_text_parts[2]
     }
