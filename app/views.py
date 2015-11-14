@@ -25,11 +25,9 @@ def handle_request(cleansweep_instance):
         return jsonify(), 401
 
     phone = request.args.get('phone')
+    message = request.args.get('message')
 
-    sms_text = request.args.get('message')
-    sms_text_parts = shlex.split(sms_text)  # Splits by whitespace but text in quotes stays intact.
-
-    task = sms_text_parts[0].lower()
+    task, argument = message.split(None, 1)
 
     response = _authorize(task, phone, cleansweep_app_url)
     data = response.json()
@@ -38,7 +36,7 @@ def handle_request(cleansweep_instance):
     if is_authorized:
         token = data['token']  # Grab token if authorized
         if task == "send-sms":
-            response = _send_sms(token, sms_text_parts, cleansweep_app_url)
+            response = _send_sms(token, argument, cleansweep_app_url)
         else:
             response = None
     else:
@@ -106,11 +104,13 @@ def _authorize(task, phone, cleansweep_app_url):
         'scope': task,
         'phone': phone
     }
+    app.logger.info("URL - %s/api/authorize", cleansweep_app_url)
+    app.logger.info("DATA - %s", data)
     response = requests.post('{0}/api/authorize'.format(cleansweep_app_url), data)
     return response
 
 
-def _send_sms(token, sms_text_parts, cleansweep_app_url):
+def _send_sms(token, argument, cleansweep_app_url):
     """
     Sends a request to send group sms to all the volunteers of a place.
     :param token: The token to communicate with server
@@ -162,11 +162,15 @@ def _send_sms(token, sms_text_parts, cleansweep_app_url):
         "error": "SMS is not configured for place: <sms_text_parts[1]>"
     }
     """
-    if len(sms_text_parts) != 3:  # If sending sms, there can be only 3 parts. 1st task, 2nd place and 3rd the message.
+    try:
+        place, message = argument.split(None, 1)
+    except ValueError:
+        # It is an error if the place is not specified
         return None
+
     data = {
         'token': token,
-        'place': sms_text_parts[1],
-        'message': sms_text_parts[2]
+        'place': place,
+        'message': message
     }
     return requests.post('{0}/api/send-sms'.format(cleansweep_app_url), data)
