@@ -9,23 +9,19 @@ def index():
     return "Hello, World!"
 
 
-@app.route("/sms-bridge/<cleansweep_instance>/", methods=['GET'])
+@app.route("/sms-bridge/<cleansweep_instance>/", methods=['POST'])
 def handle_request(cleansweep_instance):
-    if 'password' not in request.args or not request.args.get('password') or \
-            'phone' not in request.args or not request.args.get('phone') or \
-            'message' not in request.args or not request.args.get('message'):
-        return jsonify(), 400
+    password = request.form['secret']
 
     cleansweep_instance = cleansweep_instance.upper()
     password_in_config = app.config['{0}_PASSWORD'.format(cleansweep_instance)]
     cleansweep_app_url = app.config['{0}_URL'.format(cleansweep_instance)]
 
-    password = request.args.get('password')
     if password != password_in_config:
         return jsonify(), 401
 
-    phone = request.args.get('phone')
-    message = request.args.get('message')
+    phone = request.form['from']
+    message = request.form['message']
 
     task, argument = message.split(None, 1)
 
