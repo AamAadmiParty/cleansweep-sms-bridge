@@ -2,6 +2,7 @@ from app import app
 from flask import request, jsonify
 import shlex
 import requests
+import uuid
 
 
 @app.route("/")
@@ -18,7 +19,7 @@ def handle_request(cleansweep_instance):
     cleansweep_app_url = app.config['{0}_URL'.format(cleansweep_instance)]
 
     if password != password_in_config:
-        return jsonify(), 401
+        return _send_response(401, error="Secret key didn't match for %s." % cleansweep_instance)
 
     phone = request.form['from']
     message = request.form['message']
@@ -36,14 +37,36 @@ def handle_request(cleansweep_instance):
         else:
             response = None
     else:
-        return jsonify({'feedback': data['error']}), response.status_code
+        return _send_response(response.status_code, reply_sms=True, phone=phone, message=data['error'])
 
     if response is None:
-        return jsonify(), 400
+        return _send_response(404, error="Task not implemented.")
 
     data = response.json()
     is_successful = response.status_code == 200
-    return jsonify({"feedback": data['feedback'] if is_successful else data['error']}), response.status_code
+    return _send_response(response.status_code, reply_sms=True,
+                          phone=phone, message=data['feedback'] if is_successful else data['error'])
+
+
+def _send_response(status_code, error=None, reply_sms=False, **kwargs):
+    """
+    Sends a response back to the app.
+    :param status_code: Status code of the response.
+    :param error: An error message if the request wasn't successful.
+    :param reply_sms: A boolean argument. True if you want to send response as a reply sms to the user.
+    :param kwargs: Includes phone number and message if reply_sms is set to True.
+    :return:
+    """
+    is_successful = status_code == 200
+    data = {'payload': {'success': is_successful}}
+
+    if not reply_sms:
+        data['payload']['error'] = error  # Stuff users doesn't need to know. So just inform app why the request failed.
+    else:
+        data['payload']['task'] = 'send'
+        data['payload']['messages'] = [{'to': kwargs['phone'], 'message': kwargs['message'], 'uuid': uuid.uuid4().hex}]
+
+    return jsonify(data), status_code
 
 
 def _authorize(task, phone, cleansweep_app_url):
