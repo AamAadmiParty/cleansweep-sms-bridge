@@ -57,8 +57,7 @@ def _send_response(status_code, error=None, reply_sms=False, **kwargs):
     :param kwargs: Includes phone number and message if reply_sms is set to True.
     :return:
     """
-    is_successful = status_code == 200
-    data = {'payload': {'success': is_successful}}
+    data = {'payload': {'success': True}}
 
     if not reply_sms:
         data['payload']['error'] = error  # Stuff users doesn't need to know. So just inform app why the request failed.
@@ -66,7 +65,7 @@ def _send_response(status_code, error=None, reply_sms=False, **kwargs):
         data['payload']['task'] = 'send'
         data['payload']['messages'] = [{'to': kwargs['phone'], 'message': kwargs['message'], 'uuid': uuid.uuid4().hex}]
 
-    return jsonify(data), status_code
+    return jsonify(data)
 
 
 def _authorize(task, phone, cleansweep_app_url):
